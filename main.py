@@ -2,142 +2,143 @@ import cv2
 import numpy as np
 import utlis
 
-
-########################################################################
-webCamFeed = True
-pathImage = "optik2.png"
+#
+cameraFeed = True
+pathImage = "A.png"
 cap = cv2.VideoCapture(0)
 cap.set(10,160)
-heightImg = 700
-widthImg  = 700
-questions=5
-choices=5
-ans= [1,2,0,2,4]
-########################################################################
+imgYukseklik = 700
+imgGenislik  = 700
+soruSayisi=5
+secenekSayisi=5
+dogruCevaplar = [1,2,0,2,4]
+
 
 
 count=0
 
 while True:
 
-    if webCamFeed:success, img = cap.read()
-    else:img = cv2.imread(pathImage)
-    img = cv2.resize(img, (widthImg, heightImg)) # RESIZE IMAGE
+    if cameraFeed:
+        success, img = cap.read()
+    else:
+        img = cv2.imread(pathImage)
+    img = cv2.resize(img, (imgGenislik, imgYukseklik)) #resize image. görüntüyü belirtilen genişlik ve yükseklik boyutuna getirir.
     imgFinal = img.copy()
-    imgBlank = np.zeros((heightImg,widthImg, 3), np.uint8) # CREATE A BLANK IMAGE FOR TESTING DEBUGGING IF REQUIRED
-    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) # CONVERT IMAGE TO GRAY SCALE
-    imgBlur = cv2.GaussianBlur(imgGray, (5, 5), 1) # ADD GAUSSIAN BLUR
-    imgCanny = cv2.Canny(imgBlur,10,70) # APPLY CANNY 
+    bosImage = np.zeros((imgYukseklik,imgGenislik, 3), np.uint8) # boş görüntü oluşturur. 3= RGB temsil eder.
+    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) # renkli görüntüyü siyah beyaz görüntüye dönüştürür.
+    imgBlur = cv2.GaussianBlur(imgGray, (5, 5), 1) # Gaussian blur uygular. Görüntüdeki gürültüyü azaltır.
+    imgCanny = cv2.Canny(imgBlur,10,70) # Kenar tespiti yapar.
 
     try:
-        ## FIND ALL COUNTOURS
-        imgContours = img.copy() # COPY IMAGE FOR DISPLAY PURPOSES
-        imgBigContour = img.copy() # COPY IMAGE FOR DISPLAY PURPOSES
-        contours, hierarchy = cv2.findContours(imgCanny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) # FIND ALL CONTOURS
-        cv2.drawContours(imgContours, contours, -1, (0, 255, 0), 10) # DRAW ALL DETECTED CONTOURS
+        ## Tüm konturları bul.
+        imgContours = img.copy() # DISPLAY İÇİN GÖRÜNTÜYÜ KOPYALA
+        imgBigContour = img.copy() # DISPLAY İÇİN GÖRÜNTÜYÜ KOPYALA
+        contours, hierarchy = cv2.findContours(imgCanny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
+        # imgCanny üzerinde (kenar tespiti yapılmış görüntü) konturları bulur. 
+        # cv2.RETR_EXTERNAL: En dıştaki konturları bulur. # cv2.CHAIN_APPROX_NONE: Tüm kontur noktalarını korur.
+        #contours: konturların listesi # hierarchy: konturların hiyerarşisi, dizi.
+        cv2.drawContours(imgContours, contours, -1, (0, 255, 0), 10) # TESPİT EDİLEN TÜM KONTURLARI ÇİZ
         dortgenKonturlar = utlis.dortgenKonturBul(contours)
-        biggestPoints= utlis.koseNoktalariAl(dortgenKonturlar[0]) # GET CORNER POINTS OF THE BIGGEST RECTANGLE
-        gradePoints = utlis.koseNoktalariAl(dortgenKonturlar[1]) # GET CORNER POINTS OF THE SECOND BIGGEST RECTANGLE
+        enBuyukDortgenNoktalari = utlis.koseNoktalariAl(dortgenKonturlar[0]) # büyük dörtgenin köşe noktalarını al
+        ikinciBuyukDortgenNoktalari = utlis.koseNoktalariAl(dortgenKonturlar[1]) # ikinci büyük dörtgenin köşe noktalarını al
 
-        
+        # büyük dörtgenin köşe noktaları ve ikinci büyük dörtgenin köşe noktaları bulunduysa
+        if enBuyukDortgenNoktalari.size != 0 and ikinciBuyukDortgenNoktalari.size != 0:
 
-        if biggestPoints.size != 0 and gradePoints.size != 0:
+            # büyük dörtgenin köşe noktalarını yeniden düzenleme işlemi.
+            enBuyukDortgenNoktalari=utlis.noktalariYenidenDuzenle(enBuyukDortgenNoktalari) # yeniden düzenleme
+            cv2.drawContours(imgBigContour, enBuyukDortgenNoktalari, -1, (0, 255, 0), 20) # büyük dörtgeni çiz
+            pts1 = np.float32(enBuyukDortgenNoktalari) # Kaynak görüntüdeki 4 nokta (orijinal görüntüdeki eğik dörtgenin köşeleri)
+            pts2 = np.float32([[0, 0],[imgGenislik, 0], [0, imgYukseklik],[imgGenislik, imgYukseklik]]) # hedef görüntüdeki 4 nokta (hedef görüntüdeki dörtgenin köşeleri)
+            #pts1 burada eğik duran dörtgenin köşeleri, pts2 ise düzgün duran dörtgenin köşeleri.
+            matrix = cv2.getPerspectiveTransform(pts1, pts2) # perspektif dönüşüm matrisi al
+            imgWarpColored = cv2.warpPerspective(img, matrix, (imgGenislik, imgYukseklik)) # perspektif dönüşüm uygula
+            #optik formu düz şekle getirir. imgWarpColored düzgün duran dörtgeni temsil eder.
 
-            # BIGGEST RECTANGLE WARPING
-            biggestPoints=utlis.noktalarıYenidenDuzenle(biggestPoints) # REORDER FOR WARPING
-            cv2.drawContours(imgBigContour, biggestPoints, -1, (0, 255, 0), 20) # DRAW THE BIGGEST CONTOUR
-            pts1 = np.float32(biggestPoints) # PREPARE POINTS FOR WARP
-            pts2 = np.float32([[0, 0],[widthImg, 0], [0, heightImg],[widthImg, heightImg]]) # PREPARE POINTS FOR WARP
-            matrix = cv2.getPerspectiveTransform(pts1, pts2) # GET TRANSFORMATION MATRIX
-            imgWarpColored = cv2.warpPerspective(img, matrix, (widthImg, heightImg)) # APPLY WARP PERSPECTIVE
+            # ikinci büyük dörtgenin köşe noktalarını yeniden düzenleme işlemi.
+            cv2.drawContours(imgBigContour, ikinciBuyukDortgenNoktalari, -1, (255, 0, 0), 20) # ikinci büyük dörtgeni çiz
+            ikinciBuyukDortgenNoktalari = utlis.noktalariYenidenDuzenle(ikinciBuyukDortgenNoktalari) # köşe noktalarını yeniden düzenle
+            ptsG1 = np.float32(ikinciBuyukDortgenNoktalari)  # kaynak görüntüdeki 4 nokta
+            ptsG2 = np.float32([[0, 0], [325, 0], [0, 150], [325, 150]])  # hedef görüntüdeki 4 nokta
+            matrixG = cv2.getPerspectiveTransform(ptsG1, ptsG2)# perspektif dönüşüm matrisi al
+            imgGradeDisplay = cv2.warpPerspective(img, matrixG, (325, 150)) # perspektif dönüşüm uygula
 
-            # SECOND BIGGEST RECTANGLE WARPING
-            cv2.drawContours(imgBigContour, gradePoints, -1, (255, 0, 0), 20) # DRAW THE BIGGEST CONTOUR
-            gradePoints = utlis.noktalarıYenidenDuzenle(gradePoints) # REORDER FOR WARPING
-            ptsG1 = np.float32(gradePoints)  # PREPARE POINTS FOR WARP
-            ptsG2 = np.float32([[0, 0], [325, 0], [0, 150], [325, 150]])  # PREPARE POINTS FOR WARP
-            matrixG = cv2.getPerspectiveTransform(ptsG1, ptsG2)# GET TRANSFORMATION MATRIX
-            imgGradeDisplay = cv2.warpPerspective(img, matrixG, (325, 150)) # APPLY WARP PERSPECTIVE
-
-            # APPLY THRESHOLD
-            imgWarpGray = cv2.cvtColor(imgWarpColored,cv2.COLOR_BGR2GRAY) # CONVERT TO GRAYSCALE
-            imgThresh = cv2.threshold(imgWarpGray, 170, 255,cv2.THRESH_BINARY_INV )[1] # APPLY THRESHOLD AND INVERSE
-
-            boxes = utlis.kutuBol(imgThresh) # GET INDIVIDUAL BOXES
-            cv2.imshow("Split Test ", boxes[3])
-            countR=0
-            countC=0
-            myPixelVal = np.zeros((questions,choices)) # TO STORE THE NON ZERO VALUES OF EACH BOX
-            for image in boxes:
+            # EŞİKLEME(THRESHOLD) UYGULAMA
+            #imgWarpColored düzgün duran dörtgeni temsil eder.
+            imgPerspektifGray = cv2.cvtColor(imgWarpColored,cv2.COLOR_BGR2GRAY) # GrayScale'a dönüştür
+            imgPerspektifThresh = cv2.threshold(imgPerspektifGray, 170, 255,cv2.THRESH_BINARY_INV )[1] # eşikleme uygula ve tersini al
+            #threshold işlemi görüntüyü binary formata çevirir.
+            #THRESH_BINARY_INV: Eşik değerinden büyük olan pikselleri 0, küçük olan pikselleri 255 yapar.
+            kutular = utlis.kutuBol(imgPerspektifThresh) # her bir kutuyu 5x5'e böler.
+            cv2.imshow("Split Test ", kutular[3])
+            countR=0    #soru sayısı (satır sayısı)
+            countC=0    #cevap sayısı (sütun sayısı)
+            kutudakiSifirOlmayanPikselSayisi = np.zeros((soruSayisi,secenekSayisi)) # her bir kutudaki sıfır olmayan değerleri saklar
+            # image in boxes -> 25 adet kutu taraması. 
+            for image in kutular:
                 #cv2.imshow(str(countR)+str(countC),image)
-                totalPixels = cv2.countNonZero(image)
-                myPixelVal[countR][countC]= totalPixels
-                countC += 1
-                if (countC==choices):countC=0;countR +=1
+                totalPixels = cv2.countNonZero(image)   #siyah olmayan piksel sayısı
+                kutudakiSifirOlmayanPikselSayisi[countR][countC]= totalPixels
+                #her bir kutudaki sıfır olmayan piksel sayısını saklar.
+                countC += 1 # sütun sayısını artırır.
+                if (countC==secenekSayisi):
+                    countC=0; # sütun sayısını sıfırlar.
+                    countR +=1 # sütun sayısı bitince sıfırlar ve satır sayısını artırır.
 
-            # FIND THE USER ANSWERS AND PUT THEM IN A LIST
-            myIndex=[]
-            for x in range (0,questions):
-                arr = myPixelVal[x]
-                myIndexVal = np.where(arr == np.amax(arr))
-                myIndex.append(myIndexVal[0][0])
-            #print("USER ANSWERS",myIndex)
+            # optik form cevaplarını bulup listeye koyma işlemi.
+            formCevaplar=[]  # Kullanıcı cevaplarını tutacak boş liste
+            for x in range (0,soruSayisi):  # Her soru için döngü
+                arr = kutudakiSifirOlmayanPikselSayisi[x]  # O sorunun tüm şıklarındaki piksel değerlerini al 
+                formCevaplar.append(np.where(arr == np.amax(arr))[0][0])  # En yüksek piksel değerine sahip şıkkın indeksini bul
+            #print("Kullanıcı Cevapları",myIndex)
 
-            # COMPARE THE VALUES TO FIND THE CORRECT ANSWERS
-            grading=[]
-            for x in range(0,questions):
-                if ans[x] == myIndex[x]:
-                    grading.append(1)
-                else:grading.append(0)
+            # Doğru cevapları bulma işlemi.
+            dogruYanlis =[]  # Doğru/yanlış sonuçlarını tutacak boş liste
+            for x in range(0,soruSayisi):  # Her soru için kontrol   
+                if dogruCevaplar[x] == formCevaplar[x]:  # Doğru cevap (ans) ile kullanıcı cevabı (myIndex) karşılaştırması
+                    dogruYanlis.append(1)      # Doğruysa 1 ekle
+                else:
+                    dogruYanlis.append(0)      # Yanlışsa 0 ekle
             #print("GRADING",grading)
-            score = (sum(grading)/questions)*100 # FINAL GRADE
+            score = (sum(dogruYanlis)/soruSayisi)*100  # Toplam puanı hesapla
             #print("SCORE",score)
 
-            # DISPLAYING ANSWERS
-            utlis.cevaplariGoster(imgWarpColored,myIndex,grading,ans) # DRAW DETECTED ANSWERS
-            utlis.GridCiz(imgWarpColored) # DRAW GRID
-            imgRawDrawings = np.zeros_like(imgWarpColored) # NEW BLANK IMAGE WITH WARP IMAGE SIZE
-            utlis.cevaplariGoster(imgRawDrawings, myIndex, grading, ans) # DRAW ON NEW IMAGE
-            invMatrix = cv2.getPerspectiveTransform(pts2, pts1) # INVERSE TRANSFORMATION MATRIX
-            imgInvWarp = cv2.warpPerspective(imgRawDrawings, invMatrix, (widthImg, heightImg)) # INV IMAGE WARP
+            # Cevapları görüntüleme İşlemi
+            utlis.cevaplariGoster(imgWarpColored,formCevaplar,dogruYanlis,dogruCevaplar) # Taranan cevapları görüntüle
+            utlis.GridCiz(imgWarpColored) # Izgara çiz
+            imgRawDrawings = np.zeros_like(imgWarpColored) # YENİ BOŞ GÖRÜNTÜ OLUŞTUR
+            utlis.cevaplariGoster(imgRawDrawings, formCevaplar, dogruYanlis, dogruCevaplar) # YENİ GÖRÜNTÜYE ÇİZ
+            invMatrix = cv2.getPerspectiveTransform(pts2, pts1) # TERS DÖNÜŞÜM MATRİSİ
+            imgInvWarp = cv2.warpPerspective(imgRawDrawings, invMatrix, (imgGenislik, imgYukseklik)) # INV IMAGE WARP
 
-            # DISPLAY GRADE
-            imgRawGrade = np.zeros_like(imgGradeDisplay,np.uint8) # NEW BLANK IMAGE WITH GRADE AREA SIZE
-            cv2.putText(imgRawGrade,str(int(score))+"%",(70,100)
-                        ,cv2.FONT_HERSHEY_COMPLEX,3,(0,255,255),3) # ADD THE GRADE TO NEW IMAGE
-            invMatrixG = cv2.getPerspectiveTransform(ptsG2, ptsG1) # INVERSE TRANSFORMATION MATRIX
-            imgInvGradeDisplay = cv2.warpPerspective(imgRawGrade, invMatrixG, (widthImg, heightImg)) # INV IMAGE WARP
+            # Puanı görüntüleme İşlemi
+            imgRawGrade = np.zeros_like(imgGradeDisplay,np.uint8) # YENİ BOŞ GÖRÜNTÜ OLUŞTUR
+            cv2.putText(imgRawGrade,str(int(score)),(70,100)
+                        ,cv2.FONT_HERSHEY_COMPLEX,3,(0,0,255),3) # YENİ GÖRÜNTÜYE PUAN EKLE
+            invMatrixG = cv2.getPerspectiveTransform(ptsG2, ptsG1) # TERS DÖNÜŞÜM MATRİSİ
+            imgInvGradeDisplay = cv2.warpPerspective(imgRawGrade, invMatrixG, (imgGenislik, imgYukseklik)) # TERS DÖNÜŞÜM UYGULAMA
 
-            # SHOW ANSWERS AND GRADE ON FINAL IMAGE
+            # Son görüntüye cevapları ve puanı ekleme işlemi
             imgFinal = cv2.addWeighted(imgFinal, 1, imgInvWarp, 1,0)
             imgFinal = cv2.addWeighted(imgFinal, 1, imgInvGradeDisplay, 1,0)
 
-            # IMAGE ARRAY FOR DISPLAY
+            # Son görüntüye cevapları ve puanı ekleme işlemi
             imageArray = ([img,imgGray,imgCanny,imgContours],
-                          [imgBigContour,imgThresh,imgWarpColored,imgFinal])
-            cv2.imshow("Final Result", imgFinal)
+                          [imgBigContour,imgPerspektifThresh,imgWarpColored,imgFinal])
+            cv2.imshow("Sonuc", imgFinal)
     except (cv2.error, IndexError) as e:
         print(f"Hata oluştu: {e}")
         imageArray = ([img,imgGray,imgCanny,imgContours],
-                      [imgBlank, imgBlank, imgBlank, imgBlank])
+                      [bosImage, bosImage, bosImage, bosImage])
 
-    # LABELS FOR DISPLAY
-    lables = [["Original","Gray","Edges","Contours"],
-              ["Biggest Contour","Threshold","Warpped","Final"]]
+    # GÖRÜNTÜLERİ GÖRÜNTÜLEME İŞLEMİ
+    lables = [["Orijinal","Gri Tonlamalı","Kenarlar","Konturlar"],
+              ["Buyuk Kontur","Etikleme","Perspektif","Sonuc"]]
 
-    imgStack = utlis.goruntuleriYigınla(imageArray,0.5,lables)
-    cv2.imshow("Result",imgStack)
+    imgStack = utlis.goruntuleriYiginla(imageArray,0.5,lables)
+    cv2.imshow("Sonuç",imgStack)
 
-    # SAVE IMAGE WHEN 's' key is pressed
-    if cv2.waitKey(1) & 0xFF == ord('s'):
-        cv2.imwrite("Scanned/myImage"+str(count)+".jpg",imgFinal)
-        cv2.rectangle(imgStack, ((int(imgStack.shape[1] / 2) - 230), int(imgStack.shape[0] / 2) + 50),
-                      (1100, 350), (0, 255, 0), cv2.FILLED)
-        cv2.putText(imgStack, "Scan Saved", (int(imgStack.shape[1] / 2) - 200, int(imgStack.shape[0] / 2)),
-                    cv2.FONT_HERSHEY_DUPLEX, 3, (0, 0, 255), 5, cv2.LINE_AA)
-        cv2.imshow('Result', imgStack)
-        cv2.waitKey(300)
-        count += 1
 
     if cv2.waitKey(1) & 0xFF == ord('q'):  # q tuşuna basıldığında çık
         break

@@ -1,43 +1,58 @@
 import cv2
 import numpy as np
 
-## TO STACK ALL THE IMAGES IN ONE WINDOW
+
     # Birden fazla görüntüyü tek bir pencerede yatay ve dikey olarak birleştirir
     # Parametreler:
     # resimDizisi: Birleştirilecek görüntülerin 2D dizisi
     # olcek: Görüntülerin yeniden boyutlandırma ölçeği
     # etiketler: Her görüntü için gösterilecek metin etiketleri
-def goruntuleriYigınla(goruntuDizisi, olcek, etiketler=[]):
-    satirlar = len(goruntuDizisi)
-    sutunlar = len(goruntuDizisi[0])
-    satirlarMevcut = isinstance(goruntuDizisi[0], list)
-    genislik = goruntuDizisi[0][0].shape[1]
-    yukseklik = goruntuDizisi[0][0].shape[0]
+def goruntuleriYiginla(goruntuDizisi, olcek, etiketler=[]):
+    # Giriş parametreleri:
+    # goruntuDizisi: İşlenecek görüntülerin 2D dizisi
+    # olcek: Görüntülerin yeniden boyutlandırma ölçeği
+    # etiketler: Her görüntü için gösterilecek metin etiketleri (opsiyonel)
+
+    # 1. Temel değişkenlerin hazırlanması
+    # Dizi boyutlarını ve görüntü özelliklerini belirler
+    satirlar = len(goruntuDizisi)  # Dizi satır sayısı
+    sutunlar = len(goruntuDizisi[0])  # Dizi sütun sayısı
+    satirlarMevcut = isinstance(goruntuDizisi[0], list)  # 2D dizi kontrolü
+    genislik = goruntuDizisi[0][0].shape[1]  # İlk görüntünün genişliği
+    yukseklik = goruntuDizisi[0][0].shape[0]  # İlk görüntünün yüksekliği
     
+    # 2. 2D dizi durumunda işlemler
+    # Eğer görüntü dizisi 2 boyutlu ise:
+    # - Her görüntüyü yeniden boyutlandırır
+    # - Gri tonlamalı görüntüleri BGR'ye dönüştürür
+    # - Görüntüleri yatay ve dikey olarak birleştirir
     if satirlarMevcut:
         for x in range(0, satirlar):
             for y in range(0, sutunlar):
                 goruntuDizisi[x][y] = cv2.resize(goruntuDizisi[x][y], (0, 0), None, olcek, olcek)
                 if len(goruntuDizisi[x][y].shape) == 2: 
                     goruntuDizisi[x][y] = cv2.cvtColor(goruntuDizisi[x][y], cv2.COLOR_GRAY2BGR)
+        #altta yapılan işlem görüntüleri yatay ve dikey olarak birleştirir
         bosGoruntu = np.zeros((yukseklik, genislik, 3), np.uint8)
         yatay = [bosGoruntu]*satirlar
         yatay_birlesmis = [bosGoruntu]*satirlar
         for x in range(0, satirlar):
-            yatay[x] = np.hstack(goruntuDizisi[x])
-            yatay_birlesmis[x] = np.concatenate(goruntuDizisi[x])
-        dikey = np.vstack(yatay)
-        dikey_birlesmis = np.concatenate(yatay)
+            yatay[x] = np.hstack(goruntuDizisi[x])  #hstack yatay birleştirme işlemi
+            yatay_birlesmis[x] = np.concatenate(goruntuDizisi[x])   #concatenate dizi birleştirme işlemi
+        dikey = np.vstack(yatay)  #vstack dikey birleştirme işlemi
+        dikey_birlesmis = np.concatenate(yatay)  #concatenate dizi birleştirme işlemi
     else:
         for x in range(0, satirlar):
+            #altta yapılan işlem görüntüleri yeniden boyutlandırır
             goruntuDizisi[x] = cv2.resize(goruntuDizisi[x], (0, 0), None, olcek, olcek)
             if len(goruntuDizisi[x].shape) == 2: 
                 goruntuDizisi[x] = cv2.cvtColor(goruntuDizisi[x], cv2.COLOR_GRAY2BGR)
-        yatay = np.hstack(goruntuDizisi)
-        yatay_birlesmis = np.concatenate(goruntuDizisi)
+        yatay = np.hstack(goruntuDizisi)  #hstack yatay birleştirme işlemi
+        yatay_birlesmis = np.concatenate(goruntuDizisi)  #concatenate dizi birleştirme işlemi
         dikey = yatay
 
     if len(etiketler) != 0:
+        #altta yapılan işlem görüntülerin üzerine etiketleri yazdırır
         goruntuGenisligi = int(dikey.shape[1] / sutunlar)
         goruntuYuksekligi = int(dikey.shape[0] / satirlar)
         for d in range(0, satirlar):
@@ -48,7 +63,7 @@ def goruntuleriYigınla(goruntuDizisi, olcek, etiketler=[]):
                             (255,255,255), cv2.FILLED)
                 cv2.putText(dikey, etiketler[d][c],
                            (goruntuGenisligi*c+10, goruntuYuksekligi*d+20),
-                           cv2.FONT_HERSHEY_COMPLEX, 0.7, (255,0,255), 2)
+                           cv2.FONT_HERSHEY_COMPLEX, 0.7, (0,0,255), 2)
     return dikey
 
 
@@ -57,7 +72,7 @@ def goruntuleriYigınla(goruntuDizisi, olcek, etiketler=[]):
     # Parametreler:
     # noktalar: Düzenlenecek köşe noktaları
     # İşlem: Sol üst, sağ üst, sol alt ve sağ alt şeklinde sıralar
-def noktalarıYenidenDuzenle(noktalar):
+def noktalariYenidenDuzenle(noktalar):
     # Fazla parantezi kaldır ve 4x2'lik matrise dönüştür
     noktalar = noktalar.reshape((4, 2))
     print(noktalar)
